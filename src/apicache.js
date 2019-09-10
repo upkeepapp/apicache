@@ -634,6 +634,16 @@ function ApiCache() {
       var redis = opt.redisClient
       var cached = !redis ? memCache.getValue(key) : null
 
+      this.redisError;
+      redis.on('error', (err) => {
+        this.redisError = true;
+        debug('Redis err: ', err, '\nGoing to bypass cache');
+      });
+      redis.on('connect', () => {
+        this.redisError = false;
+        debug('Redis is back online!');
+      })
+
       // send if cache hit from memory-cache
       if (cached) {
         var elapsed = new Date() - req.apicacheTimer
@@ -645,6 +655,10 @@ function ApiCache() {
 
       // send if cache hit from redis
       if (redis) {
+        if (this.redisError) {
+          return bypass();
+        }
+
         try {
           redis.hgetall(key, function(err, obj) {
             if (!err && obj && obj.response) {
